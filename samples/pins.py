@@ -7,8 +7,6 @@ note_pins = [board.GP7, board.GP8, board.GP9, board.GP10,
             board.GP16, board.GP17, board.GP18, board.GP19
             ]
 
-btn_velocity_change = 16
-
 # 5 Way Joystick Pins
 select = digitalio.DigitalInOut(board.GP6)
 up = digitalio.DigitalInOut(board.GP2)
