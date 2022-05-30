@@ -13,13 +13,15 @@ import usb_midi
 import adafruit_midi
 from adafruit_midi.note_on          import NoteOn
 from adafruit_midi.note_off         import NoteOff
+from settings import *
+from pins import *
 
-
+# Turn on LED on Pico
 led = digitalio.DigitalInOut(board.LED)
 led.direction = digitalio.Direction.OUTPUT
 led.value = True
 
-
+# Conversion between midi notes and american notation
 NOTES = ["C-1", "C#-1", "D-1", "D#-1", "E-1", "F-1", "F#-1", "G-1", "G#-1", "A-1", "A#-1", "B-1",
         "C0", "C#0", "D0", "D#0", "E0", "F0", "F#0", "G0", "G#0", "A0", "A#0", "B0",
         "C1", "C#1", "D1", "D#1", "E1", "F1", "F#1", "G1", "G#1", "A1", "A#1", "B1",
@@ -32,9 +34,6 @@ NOTES = ["C-1", "C#-1", "D-1", "D#-1", "E-1", "F-1", "F#-1", "G-1", "G#-1", "A-1
         "C8", "C#8", "D8", "D#8", "E8", "F8", "F#8", "G8", "G#8", "A8", "A#8", "B8",
         "C9", "C#9", "D9", "D#9", "E9", "F9", "F#9", "G9", "G#9", "A9", "A#9", "B9"
         ]
-from settings import *
-from pins import *
-
 
 displayio.release_displays()
 
@@ -242,23 +241,18 @@ pressed = False
 while True:
     #  debouncing for 5-way switch positions
     if up.value and up_state == "pressed":
-        print("Button pressed.")
         up_state = None
         pressed = False
     if down.value and down_state == "pressed":
-        print("Button pressed.")
         down_state = None
         pressed = False
     if left.value and left_state == "pressed":
-        print("Button pressed.")
         left_state = None
         pressed = False
     if right.value and right_state == "pressed":
-        print("Button pressed.")
         right_state = None
         pressed = False
     if select.value and select_state == "pressed":
-        print("Button pressed.")
         select_state = None
 
     #  MIDI input
@@ -266,40 +260,15 @@ while True:
         buttons = note_buttons[i]
         if not buttons.value and note_states[i] is False:
             #  send the MIDI note and light up the LED
-            if velocity_change:
-                if i == btn_velocity_change - 1:
-                    leds[i].value = True
-                    note_states[i] = True
-                    if  velocity_standard == velocity_high:
-                        velocity_standard = velocity_low
-                        leds[i].value = True
-                    else:
-                        velocity_standard = velocity_high
-                        leds[i].value = False
-                    #  if button is pressed...
-                else:
-                    leds[i].value = True
-                    midi.send(NoteOn(midi_notes[i], velocity_standard))
-                    note_states[i] = True
-            else:
-                print(midi_notes[i])
-                leds[i].value = True
-                midi.send(NoteOn(midi_notes[i], velocity_standard))
-                note_states[i] = True
-
+            leds[i].value = True
+            midi.send(NoteOn(midi_notes[i], velocity_standard))
+            note_states[i] = True
         #  if the button is released...
         if buttons.value and note_states[i] is True:
             #  stop sending the MIDI note and turn off the LED
-            if velocity_change:
-                if i != btn_velocity_change - 1:
-                    midi.send(NoteOff(midi_notes[i], velocity_standard))
-                    leds[i].value = False
-            else:
-                midi.send(NoteOff(midi_notes[i], velocity_standard))
-                leds[i].value = False
+            midi.send(NoteOff(midi_notes[i], velocity_standard))
+            leds[i].value = False
             note_states[i] = False
-
-
 
     #  if we're on the main GUI page
     if not sub_state:
@@ -383,61 +352,38 @@ while True:
             clock = time.monotonic()
 
         if (time.monotonic() > (clock_select_long + 1)):
-            print("GO")
             if not select.value:
-                print(select_long_counter)
+                #print(select_long_counter)
                 select_long_counter += 1
             else:
                 if select_long_counter != 0:
                     select_long_counter = 0
             clock_select_long = time.monotonic()
 
-            if select_long_counter == 3:
-                if note_selection == 0:
-                    note_selection += 1
-                    print("Kong Kit")
-                    selection_text.text = "Kong Kit"
-                    midi_notes = midi_notes_kong
-                elif note_selection == 1:
-                    note_selection += 1
-                    print("Guitar")
-                    selection_text.text = "Guitar"
-                    velocity_change = True
-                    midi_notes = midi_notes_guitar
-                elif note_selection == 2:
-                    note_selection += 1
-                    print("Default")
-                    velocity_change = False
-                    midi_notes = midi_notes_default
-                elif note_selection == 3:
-                    print("Melody")
-                    selection_text.text = "Melody"
-                    note_selection = 0
-                    midi_notes = midi_notes_melody
-
+            # Change note if select pressed for 3 seconds
+            if select_long_counter == time_before_change_notes:
+                selection_text.text, note_selection, midi_notes = changes_notes(note_selection)
                 display.show(selection_splash)
 
+                # Leds show!
                 for led in leds:
                     led.value = True
-                time.sleep(1)
+                    time.sleep(0.03)
                 for led in leds:
                     led.value = False
+                    time.sleep(0.03)
 
+                # Reset oled interface
                 select_long_counter = 0
                 sub_state = False
-                text_labels[button_pos].text = NOTES[midi_num]
+                # Reset text on OLED
+                for i in range(16):
+                    text_labels[i].text = NOTES[midi_notes[i]]
+
                 #  show main GUI display
                 display.show(splash)
                 #  turn off blinking LED
                 leds[button_pos].value = False
-
-
-        if (time.monotonic_ns() > (clock_button_repeat + autorepeat_timer)):
-            clock_button_repeat = time.monotonic_ns()
-            if not up.value:
-                up_state = None
-            if not down.value:
-                down_state = None
 
         #  blocks the MIDI number from being set above 128
         if midi_num >= 128:
