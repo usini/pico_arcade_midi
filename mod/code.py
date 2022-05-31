@@ -13,7 +13,7 @@ import usb_midi
 import adafruit_midi
 from adafruit_midi.note_on          import NoteOn
 from adafruit_midi.note_off         import NoteOff
-from settings import *
+from presets import *
 from pins import *
 
 # Turn on LED on Pico
